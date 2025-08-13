@@ -3,18 +3,11 @@ import * as awareProto from 'y-protocols/awareness.js';
 
 import { GlobalBus } from '@/services/event-bus';
 import { SvsProvider } from '@/services/svs-provider';
-import * as opfs from '@/services/opfs';
 import * as utils from '@/utils';
 import { nanoid } from 'nanoid';
 
 import type { WorkspaceAPI } from './ndn';
 import type { IBlobVersion, IProject, IProjectFile } from './types';
-import {
-  excalidrawToFile,
-  type ExcalidrawElementYMap,
-  type ExcalidrawFilesYMap,
-} from './excalidraw-types';
-import type { ImportedDataState } from '@excalidraw/excalidraw/data/types';
 
 /**
  * Project manager for the workspace.
