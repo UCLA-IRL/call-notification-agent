@@ -166,8 +166,11 @@ class NDNService {
       result = await WebAssembly.instantiateStreaming(fetch('/main.wasm'), go.importObject);
     } else {
       const fsImport = 'fs/promises';
-      const fs = await import(/* @vite-ignore */ fsImport);
-      const buffer = await fs.readFile(import.meta.dirname + '/../../main.wasm');
+      const fs = await import(fsImport);
+      const pathImport = 'path';
+      const path = await import(pathImport);
+      const wasmPath = path.join(path.dirname(new URL(import.meta.url).pathname), '../../public/main.wasm');
+      const buffer = await fs.readFile(wasmPath);
       result = await WebAssembly.instantiate(buffer, go.importObject);
     }
 

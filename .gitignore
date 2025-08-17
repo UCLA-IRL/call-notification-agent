@@ -36,3 +36,7 @@ coverage
 
 # Node.js
 /headless/
+
+# keychain
+keychain/
+*.db

@@ -9,8 +9,6 @@
     "preview": "vite preview",
     "build-only": "vite build",
     "type-check": "vue-tsc --build",
-    "build:headless": "vite build --config vite.config.headless.ts",
-    "build:headless:watch": "vite build --config vite.config.headless.ts --watch",
     "lint": "eslint . --fix",
     "format": "prettier --write src/",
     "go:wasm": "cd ndn/cmd && cross-env GOOS=js GOARCH=wasm go build -ldflags \"-s -w\" -o ../../public/main.wasm main.go",
