@@ -2,7 +2,11 @@ name: ci
 
 on:
   push:
+    branches-ignore:
+      - node
   pull_request:
+    branches-ignore:
+      - node
 
 jobs:
   build:
