@@ -21,6 +21,9 @@ import ndn from '../services/ndn.js';
 import { Workspace } from '../services/workspace.js';
 import * as utils from '../utils/index.js';
 
+import { ai } from './genkit.js';
+import { googleAI } from "@genkit-ai/googleai";
+
 async function loadServices() {
   globalThis._o = {
     stats: new NodeStatsDb(),
@@ -105,28 +108,28 @@ async function main() {
   }
 
   const wkspName = process.argv[2];
-  
+
   // Parse remaining arguments - could be [channel, email, psk] or [email, psk] or [psk]
   let channelName: string | undefined;
   let email: string | undefined;
   let pskHex: string | undefined;
-  
+
   const remainingArgs = process.argv.slice(3);
-  
+
   // Check if last argument looks like a hex PSK (64 chars)
   const lastArg = remainingArgs[remainingArgs.length - 1];
   if (lastArg && lastArg.length === 64 && /^[0-9a-fA-F]+$/.test(lastArg)) {
     pskHex = lastArg;
     remainingArgs.pop();
   }
-  
+
   // Check if second-to-last argument looks like email
   const secondLastArg = remainingArgs[remainingArgs.length - 1];
   if (secondLastArg && secondLastArg.includes('@')) {
     email = secondLastArg;
     remainingArgs.pop();
   }
-  
+
   // Remaining argument is channel name (if any)
   if (remainingArgs.length > 0) {
     channelName = remainingArgs[0];
@@ -142,7 +145,7 @@ async function main() {
   if (!pskHex) {
     pskHex = await askInput('Enter workspace PSK (32 bytes hex): ');
   }
-  
+
   const pskBuffer = Buffer.from(pskHex, 'hex');
   if (pskBuffer.length !== 32) {
     throw new Error('PSK must be exactly 32 bytes (64 hex characters)');
@@ -152,16 +155,16 @@ async function main() {
   try {
     await loadServices();
     await loadGoEnvironment();
-    
+
     await ndn.setup();
-    
-    // Connect to testbed 
+
+    // Connect to testbed
     await ndn.api.connect_testbed();
-    
+
     // Check if we have a testbed key, if not do NDNCERT
     if (!(await ndn.api.has_testbed_key())) {
       console.log('No NDN testbed certificate found. Starting NDNCERT process...');
-      
+
       // Start NDNCERT challenge
       console.log(`Starting NDNCERT challenge for ${email}...`);
       await ndn.api.ndncert_email(email, async (status) => {
@@ -177,20 +180,20 @@ async function main() {
             return '';
         }
       });
-      
+
       console.log('NDNCERT challenge completed successfully!');
     }
 
     // Setup the workspace
     const wksp = await setupWorkspace(wkspName, psk);
-    
+
     // Setup chat
     console.log(`Joined workspace '${wkspName}'`);
     await new Promise((resolve) => setTimeout(resolve, 2000)); // Wait for sync
-    
+
     const chat = await wksp.chat;
     const channels = await chat.getChannels();
-    
+
     if (!channelName) {
       // List available channels
       console.log('\nAvailable chat channels:');
@@ -203,7 +206,7 @@ async function main() {
       }
       process.exit(0);
     }
-    
+
     // Check if channel exists
     const channel = channels.find(c => c.name === channelName);
     if (!channel) {
@@ -213,42 +216,63 @@ async function main() {
       });
       process.exit(1);
     }
-    
+
     console.log(`\nJoined #${channelName}`);
     console.log('===============================================');
-    
+
     // Display existing messages
     const messages = await chat.getMessages(channelName);
     messages.forEach(msg => {
       const timestamp = new Date(msg.ts).toLocaleTimeString();
       console.log(`[${timestamp}] ${msg.user}: ${msg.message}`);
     });
-    
+
+
+
     console.log('===============================================');
     console.log('Type your messages (press Enter to send, Ctrl+C to quit):');
-    
+
     // Listen for new messages
-    chat.events.on('chat', (msgChannelName, message) => {
+    chat.events.on('chat', async (msgChannelName, message) => {
       if (msgChannelName === channelName) {
         const timestamp = new Date(message.ts).toLocaleTimeString();
         console.log(`[${timestamp}] ${message.user}: ${message.message}`);
+
+        const AGENT_ID = 'AGENT: '
+
+        // ensure agent does not respond to itself
+        if (message.message.substring(0, 7) != AGENT_ID) {
+          let { text } = await ai.generate({
+            model: googleAI.model('gemini-2.0-flash'),
+            prompt: message.message
+          });
+
+          text = AGENT_ID + text;
+
+          await chat.sendMessage(channelName, {
+            uuid: '', // auto-generated
+            user: await ndn.api.get_identity_name(),
+            ts: Date.now(),
+            message: text
+          });
+        }
       }
     });
-    
-    // Setup stdin for user input
-    process.stdin.setEncoding('utf8');
-    process.stdin.on('data', async (data) => {
-      const input = data.toString().trim();
-      if (input) {
-        await chat.sendMessage(channelName, {
-          uuid: '', // auto-generated
-          user: await ndn.api.get_identity_name(),
-          ts: Date.now(),
-          message: input
-        });
-      }
-    });
-    
+
+    // // Setup stdin for user input
+    // process.stdin.setEncoding('utf8');
+    // process.stdin.on('data', async (data) => {
+    //   const input = data.toString().trim();
+    //   if (input) {
+    //     await chat.sendMessage(channelName, {
+    //       uuid: '', // auto-generated
+    //       user: await ndn.api.get_identity_name(),
+    //       ts: Date.now(),
+    //       message: input
+    //     });
+    //   }
+    // });
+
     // Keep running
     await new Promise(() => {}); // Wait forever
   } catch (e) {
