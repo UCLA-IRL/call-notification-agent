@@ -25,6 +25,9 @@ import { ai } from './genkit.js';
 import { googleAI } from "@genkit-ai/googleai";
 
 import express from 'express';
+import cors from 'cors';
+
+const email = '@gmail.com';
 
 async function main() {
   try {
@@ -151,9 +154,21 @@ async function startAgent(wkspName: string, psk: string, channelName: string) {
 async function startHttpServer() {
   const app = express();
   app.use(express.json());
+  // Avoid CORS issue
+  app.use(cors({
+    origin: "*",
+    methods: ["POST"],
+    allowedHeaders: ["Content-Type", "Authorization"]
+  }));
 
-  app.post('/invite', async (req, res) => {
-    const { wkspName, psk, channel } = req.body;
+  app.post('/agent', async function(req, res) {
+    let { wkspName, psk, channel } = req.body;
+
+    const pskBuffer = Buffer.from(psk, 'hex');
+    if (pskBuffer.length !== 32) {
+      throw new Error('PSK must be exactly 32 bytes (64 hex characters)');
+    }
+    psk = new Uint8Array(pskBuffer);
 
     try {
       // Replace existing agent if running
