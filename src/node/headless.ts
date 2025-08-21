@@ -27,8 +27,6 @@ import { googleAI } from "@genkit-ai/googleai";
 import express from 'express';
 import cors from 'cors';
 
-const email = '@gmail.com';
-
 async function main() {
   try {
     await initEnvironment();
@@ -48,6 +46,8 @@ async function initEnvironment() {
 
   // Connect to testbed
   await ndn.api.connect_testbed();
+
+  const email = await askInput('Enter email to use: ');
 
   // Check if we have a testbed key, if not do NDNCERT
   if (!(await ndn.api.has_testbed_key())) {
