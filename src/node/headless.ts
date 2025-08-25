@@ -126,10 +126,10 @@ async function startAgent(wkspName: string, psk: string, channelName: string) {
       const timestamp = new Date(message.ts).toLocaleTimeString();
       console.log(`[${timestamp}] ${message.user}: ${message.message}`);
 
-      const AGENT_ID = 'AGENT: '
+      const AGENT_ID = 'AGENT: ';
 
       // ensure agent does not respond to itself
-      if (message.message.substring(0, 7) != AGENT_ID) {
+      if (message.message.substring(0, 7) != AGENT_ID) { // use message.user in future
         let { text } = await ai.generate({
           model: googleAI.model('gemini-2.0-flash'),
           prompt: message.message
@@ -178,7 +178,8 @@ async function startHttpServer() {
         globalThis._activeAgent = null;
       }
 
-      await startAgent(wkspName, psk, channel);
+      startAgent(wkspName, psk, channel);
+
       res.json({ ok: true, message: `Agent joined workspace ${wkspName} on #${channel}` });
     } catch (err: any) {
       console.error('Invite failed:', err);
