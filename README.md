@@ -22,7 +22,7 @@ To build the WebAssembly module, install [Go 1.23](https://go.dev/doc/install)
 ```sh
 npm install     # install dependencies
 
-npx tsx --tsconfig tsconfig.headless.json src/node/headless.ts <workspace> [channel] [email] [psk] # join workspace chat
+npx tsx --tsconfig tsconfig.headless.json src/node/headless.ts
 npm run lint    # eslint
 
 npm run go:wasm # build Go WebAssembly module
