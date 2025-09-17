@@ -81,6 +81,9 @@ async function startAgent(wkspName: string, psk: string, channelName: string) {
   console.log(`Joined workspace '${wkspName}'`);
   await new Promise((resolve) => setTimeout(resolve, 2000)); // Wait for sync
 
+  // Record when the agent joined this channel (only fetch messages after this time to ensure context)
+  const agentJoinTime = Date.now();
+
   const chat = await wksp.chat;
   const channels = await chat.getChannels();
 
@@ -130,9 +133,38 @@ async function startAgent(wkspName: string, psk: string, channelName: string) {
 
       // ensure agent does not respond to itself
       if (message.message.substring(0, 7) != AGENT_ID) { // use message.user in future
+        // Get messages after agent joined this channel
+        const allMessages = await chat.getMessages(channelName);
+        const messagesAfterJoin = allMessages.filter(msg => msg.ts >= agentJoinTime);
+        
+        // Get last 20 messages (or fewer if less than 20 exist)
+        const contextMessages = messagesAfterJoin.slice(-20);
+
+        // Build conversation history for context
+        const conversationHistory = contextMessages.map(msg => {
+          const isAgent = msg.message.startsWith(AGENT_ID);
+          return {
+            role: isAgent ? 'model' : 'user',
+            content: isAgent ? msg.message.substring(7) : msg.message, // Remove AGENT_ID prefix
+            user: msg.user,
+            timestamp: msg.ts
+          };
+        });
+
+        // Create prompt with conversation context
+        let contextPrompt = '';
+        if (conversationHistory.length > 1) {
+          contextPrompt = 'Previous conversation:\n';
+          conversationHistory.slice(0, -1).forEach(msg => {
+            contextPrompt += `${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.content}\n`;
+          });
+          contextPrompt += '\nCurrent message: ';
+        }
+        contextPrompt += message.message;
+
         let { text } = await ai.generate({
           model: googleAI.model('gemini-2.0-flash'),
-          prompt: message.message
+          prompt: contextPrompt
         });
 
         text = AGENT_ID + text;
