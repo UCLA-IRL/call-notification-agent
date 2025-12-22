@@ -21,6 +21,14 @@ import ndn from '../services/ndn.js';
 import { Workspace } from '../services/workspace.js';
 import * as utils from '../utils/index.js';
 
+import { yXmlFragmentToProseMirrorRootNode } from 'y-prosemirror';
+import { DOMSerializer, Node } from "prosemirror-model";
+import { JSDOM } from 'jsdom';
+import { mySchema } from './my-schema.ts';
+import * as nodemailer from 'nodemailer';
+
+import markdown, { getCodeString } from '@wcj/markdown-to-html'; 
+
 import { ai } from './genkit.js';
 import { googleAI } from "@genkit-ai/googleai";
 
@@ -133,41 +141,104 @@ async function startAgent(wkspName: string, psk: string, channelName: string) {
 
       // ensure agent does not respond to itself
       if (message.message.substring(0, 7) != AGENT_ID) { // use message.user in future
-        // Get messages after agent joined this channel
-        const allMessages = await chat.getMessages(channelName);
-        const messagesAfterJoin = allMessages.filter(msg => msg.ts >= agentJoinTime);
-        
-        // Get last 20 messages (or fewer if less than 20 exist)
-        const contextMessages = messagesAfterJoin.slice(-20);
 
-        // Build conversation history for context
-        const conversationHistory = contextMessages.map(msg => {
-          const isAgent = msg.message.startsWith(AGENT_ID);
-          return {
-            role: isAgent ? 'model' : 'user',
-            content: isAgent ? msg.message.substring(7) : msg.message, // Remove AGENT_ID prefix
-            user: msg.user,
-            timestamp: msg.ts
-          };
-        });
+        let text = "";
+        text = AGENT_ID + "\nProjects: ";
 
-        // Create prompt with conversation context
-        let contextPrompt = '';
-        if (conversationHistory.length > 1) {
-          contextPrompt = 'Previous conversation:\n';
-          conversationHistory.slice(0, -1).forEach(msg => {
-            contextPrompt += `${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.content}\n`;
-          });
-          contextPrompt += '\nCurrent message: ';
+        for (let i = 0; i < wksp.proj.getProjects().length; i++) {
+          console.log(wksp.proj.getProjects())
+          const instance = await wksp.proj.get(wksp.proj.getProjects()[i].name)
+          text = text + "\n" + instance.name;
         }
-        contextPrompt += message.message;
 
-        let { text } = await ai.generate({
-          model: googleAI.model('gemini-2.0-flash'),
-          prompt: contextPrompt
+        text = text + "\n\nFiles: \n";
+
+        for (let i = 0; i < wksp.proj.getProjects().length; i++) {
+          const instance = await wksp.proj.get(wksp.proj.getProjects()[i].name)
+          console.log(instance)
+          for (let j = 0; j < instance.getFileList().length; j++) {
+            text = text + " " + instance.getFileList()[j].path;
+          }
+          text = text + "\n";
+        }
+
+        text += "\n\nagenda.md:\n";
+
+        let fileContents;
+
+        console.log("FILE CONTENTS\n\n\n\n\n\n\n\n")
+        console.log(text)
+
+
+        for (let i = 0; i < wksp.proj.getProjects().length; i++) {
+          const instance = await wksp.proj.get(wksp.proj.getProjects()[i].name)
+          console.log(instance.getFileList())
+          for (let j = 0; j < instance.getFileList().length; j++) {
+            console.log(instance.getFileList()[j].path)
+            if (instance.getFileList()[j].path == "/agenda.md") {
+              fileContents = await instance.getFile(instance.getFileList()[j].path);
+            }
+          }
+        }
+        
+        await new Promise((resolve) => setTimeout(resolve, 20000));
+
+
+        console.log(fileContents)
+
+        const map = fileContents.getText('text');
+
+        const mdText = map.toString()
+
+        const thirdHeaderPos = mdText.split("##", 3).join("##").length;
+
+        const cutText = mdText.substring(0, thirdHeaderPos);
+
+        console.log(map)
+
+        const html = markdown(cutText);
+
+        // Read email sample and insert issues
+
+        let email = fs.readFileSync('./mail-template.html', 'utf-8');
+
+        const hr1 = email.indexOf("<hr>") + 4
+        const hr2 = email.indexOf("<hr>", hr1)
+
+        email = email.substring(0, hr1) + html + email.substring(hr2)
+
+        console.log(email)
+
+        text += "Sending the following email: \n";
+
+        text += email;
+
+        // Send email via nodemailer
+
+        const transporter = nodemailer.createTransport({
+          service: 'gmail',
+          auth: {
+              user: 'ownly.agent@gmail.com',
+              pass: 'ojid sxpp zvkb mfli'
+          },
         });
 
-        text = AGENT_ID + text;
+        const mailOptions = {
+          from: 'ownly-bot',
+          //to: 'nfd-dev@lists.cs.ucla.edu',
+          to: 'bradlowe@g.ucla.edu',
+          bcc: 'bradlowe@g.ucla.edu',
+          subject: 'NDN Weekly Call',
+          html: email
+        };
+
+        transporter.sendMail(mailOptions, function(error, info){
+          if (error) {
+            console.log(error);
+          } else {
+            console.log('Email sent: ' + info.response);
+          }
+        });
 
         await chat.sendMessage(channelName, {
           uuid: '', // auto-generated
@@ -176,6 +247,20 @@ async function startAgent(wkspName: string, psk: string, channelName: string) {
           message: text
         });
       }
+    }
+  });
+
+  // Setup stdin for user input
+  process.stdin.setEncoding('utf8');
+  process.stdin.on('data', async (data) => {
+    const input = data.toString().trim();
+    if (input) {
+      await chat.sendMessage(channelName, {
+        uuid: '', // auto-generated
+        user: await ndn.api.get_identity_name(),
+        ts: Date.now(),
+        message: input
+      });
     }
   });
 
@@ -279,8 +364,12 @@ async function setupWorkspace(wkspName: string, psk: Uint8Array): Promise<Worksp
   // Join the workspace if not already joined
   const wkspMeta = await globalThis._o.stats.get(wkspName);
   if (!wkspMeta) {
-    await Workspace.join(wkspName, wkspName, false, false, psk);
+    await Workspace.join(wkspName, wkspName, false, true, psk);
   }
+
+  // Force workspace to ignore invalid certs
+  wkspMeta.ignore = true;
+  await globalThis._o.stats.put(wkspName, wkspMeta);
 
   // Setup the workspace
   return await Workspace.setup(utils.escapeUrlName(wkspName));
