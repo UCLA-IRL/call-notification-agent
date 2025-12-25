@@ -225,8 +225,7 @@ async function startAgent(wkspName: string, psk: string, channelName: string) {
 
         const mailOptions = {
           from: 'ownly-bot',
-          //to: 'nfd-dev@lists.cs.ucla.edu',
-          to: 'bradlowe@g.ucla.edu',
+          to: 'nfd-dev@lists.cs.ucla.edu',
           bcc: 'bradlowe@g.ucla.edu',
           subject: 'NDN Weekly Call',
           html: email
