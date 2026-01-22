@@ -38,8 +38,14 @@ import cors from 'cors';
 async function main() {
   try {
     await initEnvironment();
-
-    await startHttpServer();
+    
+    try {
+      const { wkspName, psk, channel } = JSON.parse(fs.readFileSync("./wksp.env", 'utf-8'));
+      startAgent(wkspName, psk, channel);
+    }
+    catch {
+      await startHttpServer();
+    }
   } catch (e) {
     console.error('FATAL:', e);
     process.exit(1);
@@ -55,7 +61,7 @@ async function initEnvironment() {
   // Connect to testbed
   await ndn.api.connect_testbed();
 
-  const email = await askInput('Enter email to use: ');
+  const email = "ownly.agent@gmail.com";
 
   // Check if we have a testbed key, if not do NDNCERT
   if (!(await ndn.api.has_testbed_key())) {
@@ -225,7 +231,8 @@ async function startAgent(wkspName: string, psk: string, channelName: string) {
 
         const mailOptions = {
           from: 'ownly-bot',
-          to: 'nfd-dev@lists.cs.ucla.edu',
+          //to: 'nfd-dev@lists.cs.ucla.edu',
+          to: 'bradlowe@g.ucla.edu',
           bcc: 'bradlowe@g.ucla.edu',
           subject: 'NDN Weekly Call',
           html: email
@@ -236,6 +243,7 @@ async function startAgent(wkspName: string, psk: string, channelName: string) {
             console.log(error);
           } else {
             console.log('Email sent: ' + info.response);
+            process.exit(0);
           }
         });
 
@@ -249,19 +257,12 @@ async function startAgent(wkspName: string, psk: string, channelName: string) {
     }
   });
 
-  // Setup stdin for user input
-  process.stdin.setEncoding('utf8');
-  process.stdin.on('data', async (data) => {
-    const input = data.toString().trim();
-    if (input) {
-      await chat.sendMessage(channelName, {
-        uuid: '', // auto-generated
-        user: await ndn.api.get_identity_name(),
-        ts: Date.now(),
-        message: input
-      });
-    }
-  });
+  await chat.sendMessage(channelName, {
+    uuid: '', // auto-generated
+    user: await ndn.api.get_identity_name(),
+    ts: Date.now(),
+    message: "input"
+  })
 
   // Keep running
   await new Promise(() => {}); // Wait forever
@@ -293,6 +294,8 @@ async function startHttpServer() {
         // TODO: add cleanup if needed (detach listeners, etc.)
         globalThis._activeAgent = null;
       }
+
+      fs.writeFileSync("./wksp.env", JSON.stringify({wkspName, psk, channel}))
 
       startAgent(wkspName, psk, channel);
 
