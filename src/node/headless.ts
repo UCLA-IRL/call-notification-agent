@@ -21,16 +21,9 @@ import ndn from '../services/ndn.js';
 import { Workspace } from '../services/workspace.js';
 import * as utils from '../utils/index.js';
 
-import { yXmlFragmentToProseMirrorRootNode } from 'y-prosemirror';
-import { DOMSerializer, Node } from "prosemirror-model";
-import { JSDOM } from 'jsdom';
-import { mySchema } from './my-schema.ts';
 import * as nodemailer from 'nodemailer';
 
-import markdown, { getCodeString } from '@wcj/markdown-to-html'; 
-
-import { ai } from './genkit.js';
-import { googleAI } from "@genkit-ai/googleai";
+import markdown from '@wcj/markdown-to-html'; 
 
 import express from 'express';
 import cors from 'cors';
@@ -114,146 +107,101 @@ async function startAgent(wkspName: string, psk: string, channelName: string) {
     process.exit(0);
   }
 
+  // // // FROM GENERAL AGENT CODE, FOR DEBUG
+
   // Check if channel exists
-  const channel = channels.find(c => c.name === channelName);
-  if (!channel) {
-    console.log(`Channel #${channelName} not found. Available channels:`);
-    channels.forEach(channel => {
-      console.log(`  #${channel.name}`);
-    });
-    process.exit(1);
-  }
+  // const channel = channels.find(c => c.name === channelName);
+  // if (!channel) {
+  //   console.log(`Channel #${channelName} not found. Available channels:`);
+  //   channels.forEach(channel => {
+  //     console.log(`  #${channel.name}`);
+  //   });
+  //   process.exit(1);
+  // }
 
-  console.log(`\nJoined #${channelName}`);
-  console.log('===============================================');
+  // console.log(`\nJoined #${channelName}`);
+  // console.log('===============================================');
 
-  // Display existing messages
-  const messages = await chat.getMessages(channelName);
-  messages.forEach(msg => {
-    const timestamp = new Date(msg.ts).toLocaleTimeString();
-    console.log(`[${timestamp}] ${msg.user}: ${msg.message}`);
-  });
+  // // Display existing messages
+  // const messages = await chat.getMessages(channelName);
+  // messages.forEach(msg => {
+  //   const timestamp = new Date(msg.ts).toLocaleTimeString();
+  //   console.log(`[${timestamp}] ${msg.user}: ${msg.message}`);
+  // });
 
-  console.log('===============================================');
-  console.log('Type your messages (press Enter to send, Ctrl+C to quit):');
+  // console.log('===============================================');
+  // console.log('Type your messages (press Enter to send, Ctrl+C to quit):');
 
   // Listen for new messages and respond
   chat.events.on('chat', async (msgChannelName, message) => {
     if (msgChannelName === channelName) {
-      const timestamp = new Date(message.ts).toLocaleTimeString();
-      console.log(`[${timestamp}] ${message.user}: ${message.message}`);
+      let fileContents;
 
-      const AGENT_ID = 'AGENT: ';
-
-      // ensure agent does not respond to itself
-      if (message.message.substring(0, 7) != AGENT_ID) { // use message.user in future
-
-        let text = "";
-        text = AGENT_ID + "\nProjects: ";
-
-        for (let i = 0; i < wksp.proj.getProjects().length; i++) {
-          console.log(wksp.proj.getProjects())
-          const instance = await wksp.proj.get(wksp.proj.getProjects()[i].name)
-          text = text + "\n" + instance.name;
-        }
-
-        text = text + "\n\nFiles: \n";
-
-        for (let i = 0; i < wksp.proj.getProjects().length; i++) {
-          const instance = await wksp.proj.get(wksp.proj.getProjects()[i].name)
-          console.log(instance)
-          for (let j = 0; j < instance.getFileList().length; j++) {
-            text = text + " " + instance.getFileList()[j].path;
-          }
-          text = text + "\n";
-        }
-
-        text += "\n\nagenda.md:\n";
-
-        let fileContents;
-
-        console.log("FILE CONTENTS\n\n\n\n\n\n\n\n")
-        console.log(text)
-
-
-        for (let i = 0; i < wksp.proj.getProjects().length; i++) {
-          const instance = await wksp.proj.get(wksp.proj.getProjects()[i].name)
-          console.log(instance.getFileList())
-          for (let j = 0; j < instance.getFileList().length; j++) {
-            console.log(instance.getFileList()[j].path)
-            if (instance.getFileList()[j].path == "/agenda.md") {
-              fileContents = await instance.getFile(instance.getFileList()[j].path);
-            }
+      for (let i = 0; i < wksp.proj.getProjects().length; i++) {
+        const instance = await wksp.proj.get(wksp.proj.getProjects()[i].name)
+        // console.log(instance.getFileList())
+        for (let j = 0; j < instance.getFileList().length; j++) {
+          // console.log(instance.getFileList()[j].path)
+          if (instance.getFileList()[j].path == "/agenda.md") {
+            fileContents = await instance.getFile(instance.getFileList()[j].path);
           }
         }
-        
-        await new Promise((resolve) => setTimeout(resolve, 20000));
-
-
-        console.log(fileContents)
-
-        const map = fileContents.getText('text');
-
-        const mdText = map.toString()
-
-        const thirdHeaderPos = mdText.split("##", 3).join("##").length;
-
-        const cutText = mdText.substring(0, thirdHeaderPos);
-
-        console.log(map)
-
-        const html = markdown(cutText);
-
-        // Read email sample and insert issues
-
-        let email = fs.readFileSync('./mail-template.html', 'utf-8');
-
-        const hr1 = email.indexOf("<hr>") + 4
-        const hr2 = email.indexOf("<hr>", hr1)
-
-        email = email.substring(0, hr1) + html + email.substring(hr2)
-
-        console.log(email)
-
-        text += "Sending the following email: \n";
-
-        text += email;
-
-        // Send email via nodemailer
-
-        const transporter = nodemailer.createTransport({
-          service: 'gmail',
-          auth: {
-              user: 'ownly.agent@gmail.com',
-              pass: 'ojid sxpp zvkb mfli'
-          },
-        });
-
-        const mailOptions = {
-          from: 'ownly-bot',
-          //to: 'nfd-dev@lists.cs.ucla.edu',
-          to: 'bradlowe@g.ucla.edu',
-          bcc: 'bradlowe@g.ucla.edu',
-          subject: 'NDN Weekly Call',
-          html: email
-        };
-
-        transporter.sendMail(mailOptions, function(error, info){
-          if (error) {
-            console.log(error);
-          } else {
-            console.log('Email sent: ' + info.response);
-            process.exit(0);
-          }
-        });
-
-        await chat.sendMessage(channelName, {
-          uuid: '', // auto-generated
-          user: await ndn.api.get_identity_name(),
-          ts: Date.now(),
-          message: text
-        });
       }
+      
+      await new Promise((resolve) => setTimeout(resolve, 20000));
+
+
+      // console.log(fileContents)
+
+      const map = fileContents.getText('text');
+
+      const mdText = map.toString()
+
+      const thirdHeaderPos = mdText.split("##", 3).join("##").length;
+
+      const cutText = mdText.substring(0, thirdHeaderPos);
+
+      // console.log(map)
+
+      const html = markdown(cutText);
+
+      // Read email sample and insert issues
+
+      let email = fs.readFileSync('./mail-template.html', 'utf-8');
+
+      const hr1 = email.indexOf("<hr>") + 4
+      const hr2 = email.indexOf("<hr>", hr1)
+
+      email = email.substring(0, hr1) + html + email.substring(hr2)
+
+      // console.log(email)
+
+      // Send email via nodemailer
+
+      const transporter = nodemailer.createTransport({
+        service: 'gmail',
+        auth: {
+            user: 'ownly.agent@gmail.com',
+            pass: 'ojid sxpp zvkb mfli'
+        },
+      });
+
+      const mailOptions = {
+        from: 'ownly.agent@gmail.com',
+        //to: 'nfd-dev@lists.cs.ucla.edu', // use this email to send to mailing list
+        to: 'bradlowe@g.ucla.edu', // use this email to send to yourself
+        subject: 'NDN Weekly Call',
+        html: email
+      };
+
+      transporter.sendMail(mailOptions, function(error, info){
+        if (error) {
+          console.log(error);
+        } else {
+          console.log('Email sent: ' + info.response);
+          process.exit(0);
+        }
+      });
     }
   });
 
