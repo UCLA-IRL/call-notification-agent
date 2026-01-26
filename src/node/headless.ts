@@ -34,6 +34,8 @@ async function main() {
     
     try {
       const { wkspName, psk, channel } = JSON.parse(fs.readFileSync("./wksp.env", 'utf-8'));
+      console.log("Found workspace details!")
+      console.log(wkspName, psk, channel)
       startAgent(wkspName, psk, channel);
     }
     catch {
@@ -54,7 +56,7 @@ async function initEnvironment() {
   // Connect to testbed
   await ndn.api.connect_testbed();
 
-  const email = "ownly.agent@gmail.com";
+  const email = "bradlowe@g.ucla.edu"; // Replace this with your own email
 
   // Check if we have a testbed key, if not do NDNCERT
   if (!(await ndn.api.has_testbed_key())) {
