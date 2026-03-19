@@ -80,23 +80,26 @@ async function initEnvironment() {
 
     const dnsProvider = new Bind9DnsProvider(DNS_API_URL, DNS_API_SECRET);
     const agentDns = AGENT_DNS_NAME;
+    const recordName = `_ndncert-challenge.${agentDns}`;
 
-    await ndn.api.ndncert_dns(agentDns, async (recordName, expectedValue, status) => {
-      console.log(`NDNCERT DNS status: ${status}`);
-      if (status === 'need-record' || status === 'wrong-record') {
-        await dnsProvider.deleteTxt(recordName).catch(() => {});
-        await dnsProvider.insertTxt(recordName, expectedValue);
-        console.log(`Inserted TXT record: ${recordName} = ${expectedValue}`);
-        return 'ready';
-      } else if (status === 'done' || status === 'error') {
-        await dnsProvider.deleteTxt(recordName).catch(() => {});
-      }
-      return '';
-    });
+    try {
+      await ndn.api.ndncert_dns(agentDns, async (recordName, expectedValue, status) => {
+        console.log(`NDNCERT DNS status: ${status}`);
+        if (status === 'need-record' || status === 'wrong-record') {
+          await dnsProvider.deleteTxt(recordName).catch(() => {});
+          await dnsProvider.insertTxt(recordName, expectedValue);
+          console.log(`Inserted TXT record: ${recordName} = ${expectedValue}`);
+          return 'ready';
+        }
+        return '';
+      });
+    } finally {
+      await dnsProvider.deleteTxt(recordName).catch(() => {});
+      console.log('Cleaned up TXT record');
+    }
+
+    console.log('NDNCERT DNS challenge completed!');
   }
-
-  console.log('NDNCERT DNS challenge completed!');
-}
 
 
 async function startAgent(wkspName: string, psk: string, channelName: string) {
