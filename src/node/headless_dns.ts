@@ -3,6 +3,8 @@
  *
  * This synchronizes an Ownly project to the filesystem.
  * Requires Node.js 23 or later.
+ *
+ * See .env.example for expected env vars. Create .env with values added
  */
 
 /// <reference types="node" />
@@ -20,13 +22,33 @@ import nodeAdapter from 'file-system-access/lib/adapters/node.js';
 import ndn from '../services/ndn.js';
 import { Workspace } from '../services/workspace.js';
 import * as utils from '../utils/index.js';
+import { Bind9DnsProvider } from './providers/bind9.ts';
 
 import * as nodemailer from 'nodemailer';
+
 
 import markdown from '@wcj/markdown-to-html';
 
 import express from 'express';
 import cors from 'cors';
+
+import 'dotenv/config';
+
+// Verify that .env values are provided
+const AGENT_EMAIL = requireEnv('AGENT_EMAIL');
+const AGENT_EMAIL_PASSWORD = requireEnv('AGENT_EMAIL_PASSWORD');
+const MAIL_TO = requireEnv('MAIL_TO');
+const MAIL_BCC = requireEnv('MAIL_BCC');
+const DNS_API_URL = requireEnv('DNS_API_URL');
+const DNS_API_SECRET = requireEnv('DNS_API_SECRET');
+const AGENT_DNS_NAME = requireEnv('AGENT_DNS_NAME');
+
+
+function requireEnv(key: string): string {
+  const value = process.env[key];
+  if (!value) throw new Error(`Missing required environment variable: ${key}`);
+  return value;
+}
 
 async function main() {
   try {
@@ -53,34 +75,29 @@ async function initEnvironment() {
 
   await ndn.setup();
 
-  // Connect to testbed
-  await ndn.api.connect_testbed();
-
-  const email = "jsellery@g.ucla.edu"; // Replace this with your own email
-
-  // Check if we have a testbed key, if not do NDNCERT
   if (!(await ndn.api.has_testbed_key())) {
-    console.log('No NDN testbed certificate found. Starting NDNCERT process...');
+    console.log('No NDN testbed certificate found. Starting NDNCERT DNS challenge...');
 
-    // Start NDNCERT challenge
-    console.log(`Starting NDNCERT challenge for ${email}...`);
-    await ndn.api.ndncert_email(email, async (status) => {
-      switch (status) {
-        case 'need-code':
-          const code = await askInput('Enter verification code from email: ');
-          return code;
-        case 'wrong-code':
-          console.error('Invalid verification code');
-          return '';
-        default:
-          console.log(`NDNCERT status: ${status}`);
-          return '';
+    const dnsProvider = new Bind9DnsProvider(DNS_API_URL, DNS_API_SECRET);
+    const agentDns = AGENT_DNS_NAME;
+
+    await ndn.api.ndncert_dns(agentDns, async (recordName, expectedValue, status) => {
+      console.log(`NDNCERT DNS status: ${status}`);
+      if (status === 'need-record') {
+        await dnsProvider.insertTxt(recordName, expectedValue);
+        console.log(`Inserted TXT record: ${recordName} = ${expectedValue}`);
+      } else if (status === 'done' || status === 'error') {
+        await dnsProvider.deleteTxt(recordName).catch(() => {});
+      } else {
+        console.warn(`Unexpected NDNCERT status: ${status}`); // catch surprises
       }
+      return '';
     });
-
-    console.log('NDNCERT challenge completed successfully!');
   }
+
+  console.log('NDNCERT DNS challenge completed!');
 }
+
 
 async function startAgent(wkspName: string, psk: string, channelName: string) {
   // Setup the workspace
@@ -183,15 +200,15 @@ async function startAgent(wkspName: string, psk: string, channelName: string) {
       const transporter = nodemailer.createTransport({
         service: 'gmail',
         auth: {
-            user: 'ownly.agent@gmail.com',
-            pass: ''
+            user: AGENT_EMAIL,
+            pass: AGENT_EMAIL_PASSWORD,
         },
       });
 
       const mailOptions = {
-        from: 'ownly.agent@gmail.com',
-        to: 'nfd-dev@lists.cs.ucla.edu', // use this email to send to mailing list
-        bcc: 'jsellery@g.ucla.edu', // use this email to send to yourself
+        from: AGENT_EMAIL,
+        to: MAIL_TO,
+        bcc: MAIL_BCC,
         subject: 'NDN Weekly Call',
         html: email
       };
@@ -258,7 +275,7 @@ async function startHttpServer() {
 
   const PORT = 3000;
   app.listen(PORT, () => {
-    console.log(`Agent server listening on http://localhost:${PORT}`);
+    console.log(`Agent server listening on http://localhost:${PORT}`); //TODO:
   });
 }
 
@@ -312,6 +329,7 @@ async function loadGoEnvironment() {
   console.log('Go environment loaded');
 }
 
+//TODO: `wkspMeta.ignore = true` in `setupWorkspace()` → replace with real trust schema validation once cert chain is working
 async function setupWorkspace(wkspName: string, psk: Uint8Array): Promise<Workspace> {
   // Join the workspace if not already joined
   const wkspMeta = await globalThis._o.stats.get(wkspName);
@@ -325,15 +343,6 @@ async function setupWorkspace(wkspName: string, psk: Uint8Array): Promise<Worksp
 
   // Setup the workspace
   return await Workspace.setup(utils.escapeUrlName(wkspName));
-}
-
-function askInput(question: string): Promise<string> {
-  return new Promise(resolve => {
-    process.stdout.write(question);
-    process.stdin.once('data', data => {
-      resolve(data.toString().trim());
-    });
-  });
 }
 
 main();
