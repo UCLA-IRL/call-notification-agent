@@ -42,7 +42,7 @@ const MAIL_BCC = requireEnv('MAIL_BCC');
 const DNS_API_URL = requireEnv('DNS_API_URL');
 const DNS_API_SECRET = requireEnv('DNS_API_SECRET');
 const AGENT_DNS_NAME = requireEnv('AGENT_DNS_NAME');
-
+const AGENT_PORT = requireEnv('AGENT_PORT');
 
 function requireEnv(key: string): string {
   const value = process.env[key];
@@ -273,9 +273,8 @@ async function startHttpServer() {
     }
   });
 
-  const PORT = 3000;
-  app.listen(PORT, () => {
-    console.log(`Agent server listening on http://localhost:${PORT}`); //TODO:
+  app.listen(AGENT_PORT, () => {
+    console.log(`Agent server listening on http://localhost:${AGENT_PORT}`);
   });
 }
 
