@@ -101,6 +101,8 @@ docker build -t dns-call-agent .
 docker compose up -d
 ```
 
+3. **Ask the `bruins` admin to add an nginx location block** for your agent (see below) — this is required so workspace invites from outside can reach your container.
+
 **Example `Dockerfile`:**
 ```dockerfile
 FROM node:23-slim
@@ -122,6 +124,30 @@ services:
       - "${AGENT_PORT}:${AGENT_PORT}"
 ```
 
+**nginx location block (must be added by the `bruins` admin):**
+
+Workspace invites arrive from outside as HTTP POST requests to `https://bruins.cs.ucla.edu/agents/<your-agent-name>/agent`. nginx must be configured to proxy these to your container's port. The pattern used in `/etc/nginx/sites-enabled/dns-api` is:
+
+```nginx
+location /agents/your-agent-name/ {
+    proxy_pass http://127.0.0.1:YOUR_AGENT_PORT/;
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+}
+```
+
+For example, the deployed email agent uses:
+```nginx
+location /agents/email-agent/ {
+    proxy_pass http://127.0.0.1:3000/;
+    ...
+}
+```
+so its invite endpoint is `https://bruins.cs.ucla.edu/agents/email-agent/agent`.
+
+Each new containerized agent needs its own block like this added and nginx reloaded (`sudo nginx -s reload`). The agent name in the location path should match the subdomain portion of its `AGENT_DNS_NAME` (e.g., `email-agent` for `email-agent.ownly.named-data.net`).
+
 ---
 
 ## Agent Cases
@@ -139,8 +165,9 @@ Agent hosted off-campus; DNS managed via UCLA BIND 9 server and `dns-api`.
 Agent containerized on `bruins.cs.ucla.edu` (same server as BIND 9).
 
 - Uses `Bind9DnsProvider` with `DNS_API_URL` pointing to `localhost`.
-- TLS reverse proxy is not needed — traffic stays on localhost.
+- TLS is not needed for DNS updates — that traffic stays on localhost to `dns-api`.
 - Each container must map a **different host port** for `AGENT_PORT`. If two containers both tried to bind port `3000` on the host, the second would fail to start. Use distinct ports (e.g., `3000`, `3001`) and expose them accordingly in `docker-compose.yml`.
+- **Workspace invites require nginx routing.** Invites arrive on port 443 and nginx must proxy them to your container's port. A new `location /agents/<name>/` block must be added to the nginx config on `bruins` for each new agent — see the Docker deployment section above for the exact pattern.
 
 ### Case 3: External Agent with Third-Party DNS
 
