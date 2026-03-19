@@ -84,6 +84,7 @@ async function initEnvironment() {
     await ndn.api.ndncert_dns(agentDns, async (recordName, expectedValue, status) => {
       console.log(`NDNCERT DNS status: ${status}`);
       if (status === 'need-record') {
+        await dnsProvider.deleteTxt(recordName).catch(() => {}); // clear any stale record first
         await dnsProvider.insertTxt(recordName, expectedValue);
         console.log(`Inserted TXT record: ${recordName} = ${expectedValue}`);
       } else if (status === 'done' || status === 'error') {
