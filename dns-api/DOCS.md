@@ -36,7 +36,7 @@ The service binds to `127.0.0.1` by default, so it is never directly accessible 
 | Variable        | Required | Default       | Description |
 |-----------------|----------|---------------|-------------|
 | `HMAC_SECRET`   | Yes      | —             | Shared secret used to validate incoming HMAC-SHA256 signatures. Must match the secret used by the agent's `Bind9DnsProvider`. |
-| `DNS_ZONE`      | Yes      | —             | The DNS zone managed by BIND 9 (e.g., `cs.ucla.edu`). All record names must fall within this zone. |
+| `DNS_ZONE`      | Yes      | —             | The DNS zone managed by BIND 9 (e.g., `ownly.named-data.net`). All record names must fall within this zone. |
 | `TSIG_KEY_FILE` | Yes      | —             | Path to the TSIG key file used by `nsupdate` to authenticate with BIND 9. |
 | `PORT`          | No       | `8765`        | Port to listen on. |
 | `BIND_ADDR`     | No       | `127.0.0.1`   | Address to bind to. Change with caution — the service is designed to sit behind a reverse proxy. |
@@ -58,7 +58,7 @@ Health check. Returns HTTP 200 with a JSON body.
 
 ### `POST /txt` — Insert TXT Record
 
-Inserts a DNS TXT record under the configured zone (note: cs.ucla.edu is not our actual zone, just used for example).
+Inserts a DNS TXT record under the configured zone.
 
 **Request Headers:**
 
@@ -70,7 +70,7 @@ Inserts a DNS TXT record under the configured zone (note: cs.ucla.edu is not our
 **Request Body:**
 ```json
 {
-  "recordName": "_ndncert-challenge.agent.cs.ucla.edu",
+  "recordName": "_ndncert-challenge.your-agent.ownly.named-data.net",
   "value":      "some-challenge-token",
   "ttl":        60,
   "nonce":      "a1b2c3d4-...",
@@ -106,7 +106,7 @@ Deletes all TXT records for the given record name within the configured zone.
 **Request Body:**
 ```json
 {
-  "recordName": "_ndncert-challenge.agent.cs.ucla.edu",
+  "recordName": "_ndncert-challenge.your-agent.ownly.named-data.net",
   "nonce":      "e5f6g7h8-...",
   "timestamp":  1710000060
 }
@@ -133,6 +133,8 @@ HMAC-SHA256(HMAC_SECRET, request_body_bytes)  →  base64
 ```
 
 The server recomputes this and uses a constant-time comparison (`hmac.Equal`) to prevent timing attacks. Any request with a missing or incorrect signature is rejected with `401 Unauthorized`.
+
+> **Secret distribution:** Currently, a single `HMAC_SECRET` is shared among all authorized agents. New agents must obtain this secret by contacting whoever administers the Ownly infrastructure on `bruins.cs.ucla.edu`. This is a known limitation — a future improvement would be per-agent secrets (each agent gets its own credential, which can be revoked independently).
 
 ### Replay Protection
 
@@ -171,8 +173,8 @@ go build -o dns-api-server .
 
 ```bash
 export HMAC_SECRET="your-shared-secret"
-export DNS_ZONE="cs.ucla.edu" # not actual zone
-export TSIG_KEY_FILE="/etc/bind/Ktsig-key.+165+00000.key"
+export DNS_ZONE="ownly.named-data.net"
+export TSIG_KEY_FILE="/etc/bind/Kyour-tsig-key.+ALGO+KEYTAG.key"
 ./dns-api-server
 ```
 

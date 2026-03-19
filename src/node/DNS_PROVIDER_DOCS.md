@@ -34,7 +34,7 @@ Inserts a DNS TXT record.
 
 | Parameter    | Type     | Required | Description |
 |--------------|----------|----------|-------------|
-| `recordName` | `string` | Yes      | Fully qualified domain name for the TXT record (e.g., `_ndncert-challenge.agent.cs.ucla.edu`). |
+| `recordName` | `string` | Yes      | Fully qualified domain name for the TXT record (e.g., `_ndncert-challenge.your-agent.ownly.named-data.net`). **Each agent must have a unique name** in the zone — `email-agent.ownly.named-data.net` is the deployed email notification agent. |
 | `value`      | `string` | Yes      | The TXT record value — typically a challenge token provided by the NDN CA. |
 | `ttl`        | `number` | No       | Time-to-live in seconds. Defaults to 60. A low TTL is appropriate for short-lived challenge records. |
 
@@ -68,7 +68,7 @@ new Bind9DnsProvider(apiUrl: string, secret: string)
 
 | Parameter | Type     | Description |
 |-----------|----------|-------------|
-| `apiUrl`  | `string` | Base URL of the `dns-api` service (e.g., `https://bruins.cs.ucla.edu:443`). Set via `DNS_API_URL` in `.env`. |
+| `apiUrl`  | `string` | Base URL of the `dns-api` service (e.g., `https://bruins.cs.ucla.edu`). Set via `DNS_API_URL` in `.env`. |
 | `secret`  | `string` | Shared HMAC secret. Must match `HMAC_SECRET` on the server. Set via `DNS_API_SECRET` in `.env`. |
 
 ### Request Signing
@@ -94,10 +94,12 @@ const dnsProvider = new Bind9DnsProvider(
 );
 
 // Insert a TXT record (e.g., during NDNcert challenge)
-await dnsProvider.insertTxt('_ndncert-challenge.myagent.cs.ucla.edu', 'challenge-token-xyz');
+// The record name is derived from AGENT_DNS_NAME in .env — for the deployed email agent this is
+// email-agent.ownly.named-data.net; each new agent must use its own unique name in the zone.
+await dnsProvider.insertTxt('_ndncert-challenge.email-agent.ownly.named-data.net', 'challenge-token-xyz');
 
 // Delete the TXT record after the challenge completes
-await dnsProvider.deleteTxt('_ndncert-challenge.myagent.cs.ucla.edu');
+await dnsProvider.deleteTxt('_ndncert-challenge.email-agent.ownly.named-data.net');
 ```
 
 ---

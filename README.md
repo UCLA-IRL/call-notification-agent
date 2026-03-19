@@ -70,9 +70,15 @@ cp .env.example .env
 | `MAIL_TO`             | Primary recipient address. |
 | `MAIL_BCC`            | BCC recipient (listserv address). |
 | `DNS_API_URL`         | Base URL for `dns-api` (e.g., `https://bruins.cs.ucla.edu`). UCLA users only. |
-| `DNS_API_SECRET`      | Shared HMAC secret for `dns-api`. UCLA users only. |
-| `AGENT_DNS_NAME`      | Your agent's domain name (e.g., `myagent.cs.ucla.edu`). |
-| `AGENT_PORT`          | Port for the agent's HTTP invite server (e.g., `3000`). |
+| `DNS_API_SECRET`      | Shared HMAC secret for `dns-api`. UCLA users only. See note below on obtaining this. |
+| `AGENT_DNS_NAME`      | Your agent's **unique** DNS name under `ownly.named-data.net` (e.g., `your-agent.ownly.named-data.net`). The deployed email agent uses `email-agent.ownly.named-data.net`. **Every agent must have a distinct name.** |
+| `AGENT_PORT`          | Port for the agent's HTTP invite server. **Must be unique per machine** — no two agents on the same host can share a port (e.g., `3000`, `3001`, …). |
+
+> **UCLA users — obtaining `DNS_API_SECRET`:**
+> `dns-api` uses a single shared HMAC secret to authenticate all agents.
+> To get the secret value, contact whoever administers the Ownly infrastructure on `bruins.cs.ucla.edu`.
+> Note: because all agents currently share one secret, anyone with `DNS_API_SECRET` can make
+> authenticated requests to `dns-api`. Per-agent secrets are a known improvement for future work.
 
 ---
 
@@ -134,6 +140,7 @@ Agent containerized on `bruins.cs.ucla.edu` (same server as BIND 9).
 
 - Uses `Bind9DnsProvider` with `DNS_API_URL` pointing to `localhost`.
 - TLS reverse proxy is not needed — traffic stays on localhost.
+- Each container must map a **different host port** for `AGENT_PORT`. If two containers both tried to bind port `3000` on the host, the second would fail to start. Use distinct ports (e.g., `3000`, `3001`) and expose them accordingly in `docker-compose.yml`.
 
 ### Case 3: External Agent with Third-Party DNS
 
