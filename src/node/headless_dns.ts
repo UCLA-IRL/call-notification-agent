@@ -104,7 +104,7 @@ async function initEnvironment() {
 }
 
 
-async function startAgent(wkspName: string, psk: string, channelName: string) {
+async function startAgent(wkspName: string, psk: Uint8Array, channelName: string) {
   // Setup the workspace
   const wksp = await setupWorkspace(wkspName, psk);
 
@@ -250,31 +250,38 @@ async function startHttpServer() {
     allowedHeaders: ["Content-Type", "Authorization"]
   }));
 
-app.post('/agent', async function(req, res) {
-  try {
-    let { wkspName, psk, channel } = req.body;
+  app.post('/agent', async function(req, res) {
+    try {
+      let { wkspName, psk, channel } = req.body;
 
-    const pskBuffer = Buffer.from(psk, 'hex');
-    if (pskBuffer.length !== 32) {
-      throw new Error('PSK must be exactly 32 bytes (64 hex characters)');
+      const pskBuffer = Buffer.from(psk, 'hex');
+      if (pskBuffer.length !== 32) {
+        throw new Error('PSK must be exactly 32 bytes (64 hex characters)');
+      }
+      const pskArray = new Uint8Array(pskBuffer);
+
+      if (globalThis._activeAgent) {
+        globalThis._activeAgent = null;
+      }
+
+      // Save original hex string, not the Uint8Array
+      fs.writeFileSync("./wksp.env", JSON.stringify({wkspName, psk, channel}))
+
+      startAgent(wkspName, pskArray, channel);
+
+      res.json({ ok: true, message: `Agent joined workspace ${wkspName} on #${channel}` });
+    } catch (err: any) {
+      console.error('Invite failed:', err);
+      res.status(500).json({ ok: false, error: err.message });
     }
-    const pskArray = new Uint8Array(pskBuffer);
+  });
 
-    if (globalThis._activeAgent) {
-      globalThis._activeAgent = null;
-    }
+  const PORT = parseInt(process.env.AGENT_PORT ?? '3000');
+  app.listen(PORT, () => {
+    console.log(`Agent server listening on http://localhost:${PORT}`);
+  });
+}  // closes startHttpServer
 
-    // Save original hex string, not the Uint8Array
-    fs.writeFileSync("./wksp.env", JSON.stringify({wkspName, psk, channel}))
-
-    startAgent(wkspName, pskArray, channel);
-
-    res.json({ ok: true, message: `Agent joined workspace ${wkspName} on #${channel}` });
-  } catch (err: any) {
-    console.error('Invite failed:', err);
-    res.status(500).json({ ok: false, error: err.message });
-  }
-});
 
 async function loadServices() {
   globalThis._o = {
