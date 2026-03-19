@@ -100,6 +100,7 @@ async function initEnvironment() {
 
     console.log('NDNCERT DNS challenge completed!');
   }
+}
 
 
 async function startAgent(wkspName: string, psk: string, channelName: string) {
