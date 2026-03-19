@@ -249,7 +249,8 @@ async function startHttpServer() {
     allowedHeaders: ["Content-Type", "Authorization"]
   }));
 
-  app.post('/agent', async function(req, res) {
+app.post('/agent', async function(req, res) {
+  try {
     let { wkspName, psk, channel } = req.body;
 
     const pskBuffer = Buffer.from(psk, 'hex');
@@ -258,24 +259,22 @@ async function startHttpServer() {
     }
     psk = new Uint8Array(pskBuffer);
 
-    try {
-      // Replace existing agent if running
-      if (globalThis._activeAgent) {
-        console.log('Stopping previous agent for workspace', globalThis._activeAgent.wkspName);
-        // TODO: add cleanup if needed (detach listeners, etc.)
-        globalThis._activeAgent = null;
-      }
-
-      fs.writeFileSync("./wksp.env", JSON.stringify({wkspName, psk, channel}))
-
-      startAgent(wkspName, psk, channel);
-
-      res.json({ ok: true, message: `Agent joined workspace ${wkspName} on #${channel}` });
-    } catch (err: any) {
-      console.error('Invite failed:', err);
-      res.status(500).json({ ok: false, error: err.message });
+    // Replace existing agent if running
+    if (globalThis._activeAgent) {
+      console.log('Stopping previous agent for workspace', globalThis._activeAgent.wkspName);
+      globalThis._activeAgent = null;
     }
-  });
+
+    fs.writeFileSync("./wksp.env", JSON.stringify({wkspName, psk, channel}))
+
+    startAgent(wkspName, psk, channel);
+
+    res.json({ ok: true, message: `Agent joined workspace ${wkspName} on #${channel}` });
+  } catch (err: any) {
+    console.error('Invite failed:', err);
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
 
   app.listen(AGENT_PORT, () => {
     console.log(`Agent server listening on http://localhost:${AGENT_PORT}`);
