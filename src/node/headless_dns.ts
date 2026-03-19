@@ -56,9 +56,10 @@ async function main() {
 
     try {
       const { wkspName, psk, channel } = JSON.parse(fs.readFileSync("./wksp.env", 'utf-8'));
+      const pskArray = new Uint8Array(Buffer.from(psk, 'hex'));
       console.log("Found workspace details!")
-      console.log(wkspName, psk, channel)
-      startAgent(wkspName, psk, channel);
+      console.log(wkspName, pskArray, channel)
+      startAgent(wkspName, pskArray, channel);
     }
     catch {
       await startHttpServer();
@@ -257,17 +258,16 @@ app.post('/agent', async function(req, res) {
     if (pskBuffer.length !== 32) {
       throw new Error('PSK must be exactly 32 bytes (64 hex characters)');
     }
-    psk = new Uint8Array(pskBuffer);
+    const pskArray = new Uint8Array(pskBuffer);
 
-    // Replace existing agent if running
     if (globalThis._activeAgent) {
-      console.log('Stopping previous agent for workspace', globalThis._activeAgent.wkspName);
       globalThis._activeAgent = null;
     }
 
+    // Save original hex string, not the Uint8Array
     fs.writeFileSync("./wksp.env", JSON.stringify({wkspName, psk, channel}))
 
-    startAgent(wkspName, psk, channel);
+    startAgent(wkspName, pskArray, channel);
 
     res.json({ ok: true, message: `Agent joined workspace ${wkspName} on #${channel}` });
   } catch (err: any) {
@@ -275,11 +275,6 @@ app.post('/agent', async function(req, res) {
     res.status(500).json({ ok: false, error: err.message });
   }
 });
-
-  app.listen(AGENT_PORT, () => {
-    console.log(`Agent server listening on http://localhost:${AGENT_PORT}`);
-  });
-}
 
 async function loadServices() {
   globalThis._o = {
