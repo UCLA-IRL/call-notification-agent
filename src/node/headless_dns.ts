@@ -83,14 +83,13 @@ async function initEnvironment() {
 
     await ndn.api.ndncert_dns(agentDns, async (recordName, expectedValue, status) => {
       console.log(`NDNCERT DNS status: ${status}`);
-      if (status === 'need-record') {
-        await dnsProvider.deleteTxt(recordName).catch(() => {}); // clear any stale record first
+      if (status === 'need-record' || status === 'wrong-record') {
+        await dnsProvider.deleteTxt(recordName).catch(() => {});
         await dnsProvider.insertTxt(recordName, expectedValue);
         console.log(`Inserted TXT record: ${recordName} = ${expectedValue}`);
+        return 'ready';
       } else if (status === 'done' || status === 'error') {
         await dnsProvider.deleteTxt(recordName).catch(() => {});
-      } else {
-        console.warn(`Unexpected NDNCERT status: ${status}`); // catch surprises
       }
       return '';
     });
