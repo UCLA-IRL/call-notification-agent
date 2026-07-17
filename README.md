@@ -71,7 +71,7 @@ cp .env.example .env
 | `MAIL_BCC`            | BCC recipient (listserv address). |
 | `DNS_API_URL`         | Base URL for `dns-api` (e.g., `https://bruins.cs.ucla.edu`). UCLA users only. |
 | `DNS_API_SECRET`      | Shared HMAC secret for `dns-api`. UCLA users only. See note below on obtaining this. |
-| `AGENT_DNS_NAME`      | Your agent's **unique** DNS name under `ownly.named-data.net` (e.g., `your-agent.ownly.named-data.net`). The deployed email agent uses `email-agent.ownly.named-data.net`. **Every agent must have a distinct name.** |
+| `AGENT_DNS_NAME`      | Your agent's **unique** DNS name under `ownly.named-data.net` (e.g., `your-agent.ownly.named-data.net`). The deployed email agent uses `email-agent.ownly.named-data.net`. **Every agent must have a distinct name and be invited to NDN by admin.** |
 | `AGENT_PORT`          | Port for the agent's HTTP invite server. **Must be unique per machine** — no two agents on the same host can share a port (e.g., `3000`, `3001`, …). |
 
 > **UCLA users — obtaining `DNS_API_SECRET`:**
