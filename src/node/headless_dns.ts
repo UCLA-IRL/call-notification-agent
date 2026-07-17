@@ -110,7 +110,7 @@ async function startAgent(wkspName: string, psk: Uint8Array, channelName: string
 
   // Setup chat
   console.log(`Joined workspace '${wkspName}'`);
-  await new Promise((resolve) => setTimeout(resolve, 2000)); // Wait for sync
+  await new Promise((resolve) => setTimeout(resolve, 20000)); // Wait for sync
 
   // Record when the agent joined this channel (only fetch messages after this time to ensure context)
   const agentJoinTime = Date.now();
@@ -161,6 +161,8 @@ async function startAgent(wkspName: string, psk: Uint8Array, channelName: string
     if (msgChannelName === channelName) {
       let fileContents;
 
+      await new Promise((resolve) => setTimeout(resolve, 20000));
+
       for (let i = 0; i < wksp.proj.getProjects().length; i++) {
         const instance = await wksp.proj.get(wksp.proj.getProjects()[i].name)
         // console.log(instance.getFileList())
@@ -173,8 +175,10 @@ async function startAgent(wkspName: string, psk: Uint8Array, channelName: string
       }
 
       await new Promise((resolve) => setTimeout(resolve, 20000));
-
-
+      if (!fileContents) {
+	throw new Error('Could not find /agenda.md in the documents project - check sync completed');
+      }
+    
       // console.log(fileContents)
 
       const map = fileContents.getText('text');
@@ -333,12 +337,12 @@ async function loadGoEnvironment() {
   console.log('Go environment loaded');
 }
 
-//TODO: `wkspMeta.ignore = true` in `setupWorkspace()` → replace with real trust schema validation once cert chain is working
 async function setupWorkspace(wkspName: string, psk: Uint8Array): Promise<Workspace> {
   // Join the workspace if not already joined
-  const wkspMeta = await globalThis._o.stats.get(wkspName);
+  let wkspMeta = await globalThis._o.stats.get(wkspName);
   if (!wkspMeta) {
     await Workspace.join(wkspName, wkspName, false, true, psk);
+    wkspMeta = await globalThis._o.stats.get(wkspName);
   }
 
   // Force workspace to ignore invalid certs
