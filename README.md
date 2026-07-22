@@ -10,7 +10,7 @@ Secure decentralized workspace built over the [Named Data Networking](https://na
 
 ## dns-call-notification-agent
 
-This fork adds **automatic DNS-based agent authentication** for Ownly agents. The original `call-notification-agent` authenticated via a user's email identity. This fork enables agents to autonomously prove ownership of a domain name by completing the NDNcert DNS challenge — with no human involvement.
+Features **automatic DNS-based agent authentication** for Ownly agents. The original `call-notification-agent` authenticated via a user's email identity. This version enables agents to autonomously prove ownership of a domain name by completing the NDNcert DNS challenge — with no human involvement.
 
 All DNS-authentication work lives on the [`dns-challenge`](https://github.com/j3llery/dns-call-notification-agent/tree/dns-challenge) branch of [@j3llery/dns-call-notification-agent](https://github.com/j3llery/dns-call-notification-agent/tree/dns-challenge).
 
@@ -219,7 +219,7 @@ To build the WebAssembly module, install [Go 1.23](https://go.dev/doc/install)
 ```sh
 npm install      # install dependencies
 
-npx tsx --tsconfig tsconfig.headless.json src/node/headless.ts
+npx tsx --tsconfig tsconfig.headless.json src/node/headless_dns.ts
 npm run lint     # eslint
 
 npm run go:wasm  # build Go WebAssembly module

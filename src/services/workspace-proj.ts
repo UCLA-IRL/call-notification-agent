@@ -9,6 +9,12 @@ import { nanoid } from 'nanoid';
 import type { WorkspaceAPI } from './ndn';
 import type { IBlobVersion, IProject, IProjectFile } from './types';
 
+import type {
+  ExcalidrawElementYMap,
+  ExcalidrawFilesYMap,
+} from './excalidraw-types';
+import type { ImportedDataState } from '@excalidraw/excalidraw/data/types';
+
 /**
  * Project manager for the workspace.
  * Keeps track of the list of projects and their instances.
@@ -303,6 +309,7 @@ export class WorkspaceProj {
         // https://github.com/pulsejet/ownly/issues/28
         return Y.encodeStateAsUpdateV2(doc);
       } else if (utils.isExtensionType(path, 'excalidraw')) {
+	const { excalidrawToFile } = await import('./excalidraw-types');
         const elements: ExcalidrawElementYMap = doc.getMap('elements');
         const files: ExcalidrawFilesYMap = doc.getMap('files');
         return toUtf8(
@@ -435,6 +442,7 @@ export class WorkspaceProj {
    * @param path Path in the project.
    */
   public async download(path: string) {
+    const opfs = await import('@/services/opfs');
     const fsPath = await this.syncFs({ path });
     if (fsPath.endsWith('/')) {
       const handle = await opfs.getDirectoryHandle(fsPath);
@@ -478,6 +486,7 @@ export class WorkspaceProj {
     prefix = utils.normalizePath(prefix);
     const basepdir = opts?.useProjectName ? this.name : this.uuid;
     const basedir = `${this.manager.group}/${basepdir}`;
+    const opfs = await import('@/services/opfs');
     const folder = await opfs.getDirectoryHandle(basedir + prefix, { create: true });
 
     // TODO: show progress
@@ -552,6 +561,7 @@ export class WorkspaceProj {
    * Sync a single file in the OPFS.
    */
   private async syncFsFile(opts?: SyncFsOpts): Promise<string> {
+    const opfs = await import('@/services/opfs');
     let path = opts?.path ?? '/';
 
     // Check if this is a folder
