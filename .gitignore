@@ -44,3 +44,6 @@ keychain/
 # Environment Variables
 .env
 wksp.env
+
+#Binaries
+dns-api-server
