@@ -40,3 +40,10 @@ coverage
 # keychain
 keychain/
 *.db
+
+# Environment Variables
+.env
+wksp.env
+
+#Binaries
+dns-api-server
