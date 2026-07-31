@@ -1,5 +1,5 @@
 import { WorkspaceChat } from './workspace-chat';
-import { WorkspaceProj, WorkspaceProjManager } from './workspace-proj';
+import { WorkspaceProjManager } from './workspace-proj';
 import { WorkspaceInviteManager } from './workspace-invite';
 import {WorkspaceAgentManager} from './workspace-agent'
 
@@ -10,7 +10,6 @@ import { GlobalBus } from '@/services/event-bus';
 import * as utils from '@/utils/index';
 
 import type { SvsAloApi, WorkspaceAPI } from '@/services/ndn';
-import type { Router } from 'vue-router';
 import type { IWkspStats } from '@/services/types';
 
 /**
@@ -152,42 +151,6 @@ export class Workspace {
   }
 
   /**
-   * Setup workspace from URL parameter or redirect to home.
-   *
-   * @param router Vue router
-   */
-  public static async setupOrRedir(router: Router): Promise<Workspace | null> {
-    try {
-      return await Workspace.setup(router.currentRoute.value.params.space as string);
-    } catch (e) {
-      console.error(e);
-      GlobalBus.emit('wksp-error', new Error(`Failed to start workspace: ${e}`));
-      router.push('/');
-      return null;
-    }
-  }
-
-  /**
-   * Utility to setupOrRedir and get the active project.
-   *
-   * @param router Vue router
-   */
-  public static async setupAndGetActiveProj(router: Router): Promise<WorkspaceProj> {
-    const wksp = await Workspace.setupOrRedir(router);
-    if (!wksp) throw new Error('Workspace not found');
-
-    if (wksp.proj.active) return wksp.proj.active;
-
-    // No active project, try to get it from the URL
-    const projName = router.currentRoute.value.params.project as string;
-    if (!projName) throw new Error('No project name provided');
-
-    const proj = await wksp.proj.get(projName);
-    await proj.activate();
-    return proj;
-  }
-
-  /**
    * Join a workspace by name and the default identity.
    *
    * @param label Display name
@@ -207,7 +170,7 @@ export class Workspace {
     // Generate or validate PSK
     if (create) {
       psk = new Uint8Array(32);
-      globalThis.crypto.getRandomValues(psk);
+      globalThis.crypto.getRandomValues(psk as Uint8Array<ArrayBuffer>);
     } else if (psk?.length !== 32) {
       throw new Error('Invalid PSK length != 32');
     }

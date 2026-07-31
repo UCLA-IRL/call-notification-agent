@@ -1,7 +1,5 @@
-import * as utils from '@/utils';
 import * as Y from 'yjs';
 
-import type { Router } from 'vue-router';
 import type { WorkspaceAPI } from '@/services/ndn';
 import type { SvsProvider } from '@/services/svs-provider';
 import type { IProfile, IWkspStats } from '@/services/types';
@@ -54,13 +52,12 @@ export class WorkspaceInviteManager {
     this.inviteeProfiles.set(invitee.name, invitee);
 
     // Publish the invitation
-    await this.invite(invitee.name); // Publish the invitation
+    await this.invite(invitee.name);
   }
 
   /**
    * Try to invite an agent to the workspace
    *
-   * @param invitee Profile of the invitee
    * @param inviteChannel The channel to assign
    * @param inviteUrl The external server URL for the agent
    */
@@ -92,7 +89,7 @@ export class WorkspaceInviteManager {
       console.log(`Agent invite sent successfully to ${inviteUrl}`);
     } catch (err) {
       console.error(`Failed to send agent invite to ${inviteUrl}:`, err);
-      throw err; // rethrow so UI can display Toast error
+      throw err;
     }
   }
 
@@ -108,23 +105,6 @@ export class WorkspaceInviteManager {
     // Alert repo to fetch the invitation
     // name is unused when encapsulated
     await this.provider.svs.pub_blob_fetch(String(), invite);
-  }
-
-  /**
-   * Get the join link for the workspace
-   * @param router Vue router instance
-   */
-  public async getJoinLink(router: Router) {
-    const space = utils.escapeUrlName(this.wsmeta.name);
-    const inviteHref = router.resolve({
-      name: 'join',
-      params: { space },
-      query: {
-        label: this.wsmeta.label,
-        psk: this.wsmeta.psk,
-      },
-    }).href;
-    return `${window.location.origin}${inviteHref}`;
   }
 
   /**
